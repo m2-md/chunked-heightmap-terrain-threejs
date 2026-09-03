@@ -1,5 +1,9 @@
 # Terrain Splits, Light Does Not — Seams in Chunked Heightmap Terrain
 
+<!-- LINKS:BEGIN — üretildi: scripts/sync-repo-links.py · elle düzenleme -->
+**▶ [Live demo](https://m2-md.github.io/chunked-heightmap-terrain-threejs/)** · [Source](https://github.com/m2-md/chunked-heightmap-terrain-threejs)
+<!-- LINKS:END -->
+
 Working code for the article "Terrain Splits, Light Does Not: Computing the Normal from
 the Field Instead of the Mesh in Chunked Heightmap Terrain". It contains three things:
 
