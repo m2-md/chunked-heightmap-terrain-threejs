@@ -1,4 +1,4 @@
-/** 32-bit tohumlu, hızlı ve deterministik üreteç. Aynı tohum → aynı dizi. */
+/** 32-bit seeded, fast and deterministic PRNG. Same seed -> same sequence. */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return function () {

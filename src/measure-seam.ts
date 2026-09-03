@@ -1,10 +1,10 @@
 /**
- * Dikiş ölçümü — tarayıcısız. Üç normal yolunu aynı dikişte karşılaştırır ve
- * makaledeki "Dikişte maks. normal farkı" tablosunu üretir.
+ * Seam measurement — headless. Compares three normal methods across the same seam
+ * and produces the "Max normal difference at seam" table.
  *
  *   npm run seam
  *
- * Ölçülen her sayı saf aritmetikten çıkıyor: WebGL, GPU, canvas yok.
+ * Every number measured comes from pure arithmetic: no WebGL, GPU, or canvas.
  */
 import { vertexSpan } from "./chunk-grid.js";
 import {
@@ -67,19 +67,19 @@ function measurePair(
   return { ...report, maxHeight: dh };
 }
 
-const deg = (v: number) => (v === 0 ? "0 (tam)" : `${v.toFixed(4)}°`);
+const deg = (v: number) => (v === 0 ? "0 (exact)" : `${v.toFixed(4)}°`);
 const num = (v: number) => (v === 0 ? "0" : v.toExponential(3));
 
 function table(title: string, p: TerrainParams) {
   console.log(
     `\n### ${title}  (segments ${p.segments}, amplitude ${p.amplitude}, frequency 1/${Math.round(1 / p.frequency)})`,
   );
-  console.log("| Yaklaşım | Dikişte maks. normal farkı | Ortalama | Dikişte yükseklik farkı |");
+  console.log("| Approach | Max normal difference at seam | Mean | Height difference at seam |");
   console.log("|---|---|---|---|");
   const rows: Array<[string, NormalFn]> = [
-    ["computeVertexNormals() (chunk başına)", meshNormals],
-    ["Taşma halkası + computeVertexNormals()", ringNormals],
-    ["Alandan merkezî fark", fieldNormals],
+    ["computeVertexNormals() (per chunk)", meshNormals],
+    ["Padding ring + computeVertexNormals()", ringNormals],
+    ["Central difference from field", fieldNormals],
   ];
   for (const [label, fn] of rows) {
     const ew = measurePair(p, fn, "east", "west", [1, 0]);
@@ -90,7 +90,7 @@ function table(title: string, p: TerrainParams) {
     console.log(`| \`${label}\` | ${deg(maxDeg)} | ${deg(meanDeg)} | ${num(maxH)} |`);
   }
   console.log(
-    `(doğu-batı ve kuzey-güney dikişlerinin en kötüsü · kenar başına ${vertexSpan(p)} örnek)`,
+    `(worst of east-west and north-south seams · ${vertexSpan(p)} samples per edge)`,
   );
 }
 
@@ -98,39 +98,39 @@ function acosNoiseFloor() {
   const v = new Float32Array([1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)]);
   const dot = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
   const acosDeg = (Math.acos(Math.min(1, dot)) * 180) / Math.PI;
-  console.log("\n### acos gürültü tabanı (birebir aynı float32 birim vektör)");
+  console.log("\n### acos noise floor (identical float32 unit vectors)");
   console.log(`  dot          = ${dot.toPrecision(17)}`);
-  console.log(`  acos(dot)    = ${acosDeg.toFixed(6)}°   ← sahte fark`);
-  console.log(`  2·atan2(...) = 0°                 ← doğru cevap`);
+  console.log(`  acos(dot)    = ${acosDeg.toFixed(6)}°   ← false difference`);
+  console.log(`  2·atan2(...) = 0°                 ← correct answer`);
 }
 
 function gridArithmetic() {
   const p = DEFAULT_TERRAIN;
   const span = vertexSpan(p);
   const ring = p.segments + 3;
-  console.log("\n### Izgara aritmetiği (yapısal — ölçüm değil)");
-  console.log(`  chunk vertex ızgarası  (N+1)² = ${span}² = ${span * span}`);
-  console.log(`  halka ızgarası         (N+3)² = ${ring}² = ${ring * ring}`);
+  console.log("\n### Grid arithmetic (structural — not measured)");
+  console.log(`  chunk vertex grid      (N+1)² = ${span}² = ${span * span}`);
+  console.log(`  ring grid              (N+3)² = ${ring}² = ${ring * ring}`);
   console.log(
-    `  fazla örnekleme        %${(((ring * ring) / (span * span) - 1) * 100).toFixed(2)}`,
+    `  oversampling           ${(((ring * ring) / (span * span) - 1) * 100).toFixed(2)}%`,
   );
   console.log(
-    `  fazla üçgen            %${(((2 * (ring - 1) ** 2) / (2 * p.segments ** 2) - 1) * 100).toFixed(2)}`,
+    `  extra triangles        ${(((2 * (ring - 1) ** 2) / (2 * p.segments ** 2) - 1) * 100).toFixed(2)}%`,
   );
-  console.log(`  chunk başına üçgen     ${2 * p.segments ** 2}`);
-  console.log(`  9 chunk toplam üçgen   ${9 * 2 * p.segments ** 2}`);
-  console.log(`  9 chunk saklanan vtx   ${9 * span * span}`);
+  console.log(`  triangles per chunk    ${2 * p.segments ** 2}`);
+  console.log(`  9 chunks total tri     ${9 * 2 * p.segments ** 2}`);
+  console.log(`  9 chunks stored vtx    ${9 * span * span}`);
   const distinct = (3 * p.segments + 1) ** 2;
-  console.log(`  dünyada farklı konum   ${distinct} (${3 * p.segments + 1}²)`);
-  console.log(`  çakışan vertex         ${9 * span * span - distinct}`);
+  console.log(`  distinct world coords  ${distinct} (${3 * p.segments + 1}²)`);
+  console.log(`  overlapping vertices   ${9 * span * span - distinct}`);
   const idxBytes = 6 * p.segments ** 2 * 2;
-  console.log(`  paylaşılan index       ${idxBytes} B · paylaşılmasa ${idxBytes * 9} B`);
+  console.log(`  shared index           ${idxBytes} B · unshared ${idxBytes * 9} B`);
 }
 
 /**
- * Merkezî fark adımı süpürmesi. Ölçüt: halka yönteminin ürettiği alan ağırlıklı
- * normal — yani "mesh'in gerçekten çizdiği yüzeyin" normali. Alan tabanlı normal
- * ona en çok hangi adımda yaklaşıyor?
+ * Central difference step sweep. Benchmark: area-weighted normal produced
+ * by ring method — i.e., "surface actually rendered by mesh" normal.
+ * At which step does the patch-based normal get closest to it?
  */
 function stepSweep() {
   const p = DEFAULT_TERRAIN;
@@ -142,7 +142,7 @@ function stepSweep() {
     const out = new Float32Array(span * span * 3);
     for (let j = 0; j < span; j++) {
       for (let i = 0; i < span; i++) {
-        const x = j * 0 + i * p.cellSize; // yerel = dünya (chunk 0,0)
+        const x = j * 0 + i * p.cellSize; // local = world (chunk 0,0)
         const z = j * p.cellSize;
         const dx = (height(x + step, z) - height(x - step, z)) / (2 * step);
         const dz = (height(x, z + step) - height(x, z - step)) / (2 * step);
@@ -169,8 +169,8 @@ function stepSweep() {
     return s / (n.length / 3);
   };
 
-  console.log("\n### Merkezî fark adımı süpürmesi (ölçüt: halka = mesh'in kendi normali)");
-  console.log("| Merkezî fark adımı | Halka normalinden ortalama sapma | Ortalama normal Y |");
+  console.log("\n### Central difference step sweep (benchmark: ring = mesh own normal)");
+  console.log("| Central difference step | Mean deviation from ring normal | Mean normal Y |");
   console.log("|---|---|---|");
   const cases: Array<[string, number]> = [
     ["cellSize / 8", p.cellSize / 8],
@@ -184,10 +184,10 @@ function stepSweep() {
     console.log(`| \`${label}\` | ${meanToRing(n).toFixed(4)}° | ${meanY(n).toFixed(5)} |`);
   }
 
-  // Gönderilen hâl (halka tamponundan okunan merkezî fark) ve YANLIŞ bölen.
+  // Shipped version (central difference from ring buffer) and wrong divisor.
   const shipped = normalsFromHeights(p, sampleChunkHeights(p, 0, 0, height));
   console.log(
-    `| **gönderilen kod** (adım = cellSize) | **${meanToRing(shipped).toFixed(4)}°** | ${meanY(shipped).toFixed(5)} |`,
+    `| **shipped code** (step = cellSize) | **${meanToRing(shipped).toFixed(4)}°** | ${meanY(shipped).toFixed(5)} |`,
   );
 
   const patch = sampleChunkHeights(p, 0, 0, height);
@@ -196,7 +196,7 @@ function stepSweep() {
     for (let i = 0; i < span; i++) {
       const fi = i + 1;
       const fj = j + 1;
-      // BÖLEN YANLIŞ: 2*cellSize yerine cellSize → gradyan iki katı.
+      // WRONG DIVISOR: cellSize instead of 2*cellSize -> double gradient.
       const dx =
         (patch.data[fj * patch.span + fi + 1] - patch.data[fj * patch.span + fi - 1]) / p.cellSize;
       const dz =
@@ -210,28 +210,28 @@ function stepSweep() {
     }
   }
   console.log(
-    `| yanlış bölen (\`cellSize\`) | ${meanToRing(wrong).toFixed(4)}° | ${meanY(wrong).toFixed(5)} |`,
+    `| wrong divisor (\`cellSize\`) | ${meanToRing(wrong).toFixed(4)}° | ${meanY(wrong).toFixed(5)} |`,
   );
 }
 
 function fullGridSeams() {
   const t = new Terrain(DEFAULT_TERRAIN);
-  console.log("\n### 3×3 ızgaranın BÜTÜN iç dikişleri");
-  console.log(`  iç dikiş sayısı: ${internalSeamPairs().length}`);
+  console.log("\n### ALL internal seams of 3×3 grid");
+  console.log(`  internal seam count: ${internalSeamPairs().length}`);
   for (const source of ["field", "ring", "mesh"] as const) {
     const r = t.seamReport(source);
     console.log(
-      `  ${source.padEnd(6)} → maks ${deg(r.maxDegrees).padEnd(10)} · yükseklik ${num(r.maxHeight)}`,
+      `  ${source.padEnd(6)} → max ${deg(r.maxDegrees).padEnd(10)} · height ${num(r.maxHeight)}`,
     );
   }
   t.disposeAll();
 }
 
-console.log("=== DİKİŞ ÖLÇÜMÜ — tarayıcısız, deterministik ===");
+console.log("=== SEAM MEASUREMENT — headless, deterministic ===");
 gridArithmetic();
 acosNoiseFloor();
-table("Varsayılan arazi (DEFAULT_TERRAIN)", DEFAULT_TERRAIN);
-table("Dik arazi (STEEP — testlerin kullandığı ön ayar)", STEEP);
+table("Default terrain (DEFAULT_TERRAIN)", DEFAULT_TERRAIN);
+table("Steep terrain (STEEP — preset used by tests)", STEEP);
 stepSweep();
 fullGridSeams();
-console.log("\n=== bitti ===");
+console.log("\n=== done ===");

@@ -26,10 +26,10 @@ jobs:
       - run: npm ci || npm install
       - run: npm test --if-present
         continue-on-error: true
-      # Pages projeyi alt yolda sunar; base CLI'dan veriliyor ki depo kaynagi degismesin.
+      # Pages serves the project under a sub-path; base is passed on the CLI so the repo source stays unchanged.
       - run: npx vite build --base=/chunked-heightmap-terrain-threejs/
-      # Koke mutlak sayfa linkleri alt yolda kirilir; build ciktisinda goreliye cevir.
-      - name: Sayfa arasi linkleri goreli yap
+      # Root-absolute page links break under a sub-path; rewrite them as relative in the build output.
+      - name: Make cross-page links relative
         run: |
           find dist -name '*.html' -print0 | xargs -0 -r sed -i             -e 's|href="/\([A-Za-z0-9._-]*\.html\)"|href="./\1"|g'             -e 's|href="/"|href="./index.html"|g'
       - uses: actions/configure-pages@v5

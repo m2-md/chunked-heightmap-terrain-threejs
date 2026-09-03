@@ -1,7 +1,7 @@
 /**
- * İki birim vektör arasındaki açı (derece). 2·atan2(|a-b|, |a+b|).
- * acos'un aksine sıfıra yakın açılarda hassasiyet kaybetmez: birebir aynı iki
- * float32 vektörde TAM 0 döner, acos ise ~0,015° gürültü verir.
+ * Angle between two unit vectors (degrees). 2·atan2(|a-b|, |a+b|).
+ * Unlike acos, does not lose precision near zero: returns exact 0 for
+ * identical float32 vectors, whereas acos introduces ~0.015° noise.
  */
 export function angleBetweenDegrees(
   ax: number,
@@ -18,7 +18,7 @@ export function angleBetweenDegrees(
 
 export type Edge = "east" | "west" | "north" | "south";
 
-/** Bir chunk'ın verilen kenarındaki vertex indeksleri, artan sırada. */
+/** Vertex indices on the specified edge of a chunk, in ascending order. */
 export function edgeIndices(span: number, edge: Edge): number[] {
   const out: number[] = [];
   for (let k = 0; k < span; k++) {
@@ -46,7 +46,7 @@ export interface SeamReport {
   meanDegrees: number;
 }
 
-/** İki komşu chunk'ın paylaştığı kenarda normal sürekliliği. */
+/** Normal continuity along the edge shared by two neighboring chunks. */
 export function compareNormalSeam(
   a: ArrayLike<number>,
   b: ArrayLike<number>,
@@ -56,7 +56,7 @@ export function compareNormalSeam(
 ): SeamReport {
   const ia = edgeIndices(span, edgeA);
   const ib = edgeIndices(span, edgeB);
-  if (ia.length !== ib.length) throw new RangeError("kenar uzunlukları eşleşmiyor");
+  if (ia.length !== ib.length) throw new RangeError("edge lengths do not match");
 
   let max = 0;
   let sum = 0;
@@ -71,8 +71,8 @@ export function compareNormalSeam(
 }
 
 /**
- * Aynı kenardaki yükseklik farkı (maksimum mutlak). Saf fonksiyondan gelen
- * yükseklikler için sonuç TAM 0'dır — bu bir ölçüm değil, sözleşmenin sonucu.
+ * Height difference along the same edge (maximum absolute). For heights
+ * originating from a pure function, result is exact 0 — consequence of contract.
  */
 export function compareHeightSeam(
   a: ArrayLike<number>,
@@ -83,7 +83,7 @@ export function compareHeightSeam(
 ): number {
   const ia = edgeIndices(span, edgeA);
   const ib = edgeIndices(span, edgeB);
-  if (ia.length !== ib.length) throw new RangeError("kenar uzunlukları eşleşmiyor");
+  if (ia.length !== ib.length) throw new RangeError("edge lengths do not match");
 
   let max = 0;
   for (let k = 0; k < ia.length; k++) {

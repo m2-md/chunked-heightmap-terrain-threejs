@@ -9,21 +9,21 @@ import {
 import { buildFieldChunk, buildNaiveChunkNormals, buildRingChunkNormals } from "./chunk-mesh.js";
 import { compareHeightSeam, compareNormalSeam, type Edge } from "./seam.js";
 
-/** Normal kaynağı. `field` = alandan merkezî fark, `mesh` = computeVertexNormals. */
+/** Normal source. `field` = central differences from field, `mesh` = computeVertexNormals. */
 export type NormalSource = "field" | "mesh" | "ring";
 
-/** Geometri modu. `chunked` = chunk başına bir mesh, `merged` = tek dev geometry. */
+/** Geometry mode. `chunked` = one mesh per chunk, `merged` = single monolithic geometry. */
 export type GeometryMode = "chunked" | "merged";
 
 export const CHUNKS_X = 3;
 export const CHUNKS_Z = 3;
 
 export interface SeamSummary {
-  /** Karşılaştırılan iç dikiş sayısı (3×3 ızgarada 12). */
+  /** Count of compared internal seams (12 for 3x3 grid). */
   seams: number;
-  /** Dikişteki en büyük normal açı farkı (derece). */
+  /** Maximum normal angle discrepancy across seam (degrees). */
   maxDegrees: number;
-  /** Dikişteki en büyük mutlak yükseklik farkı (dünya birimi). */
+  /** Maximum absolute height discrepancy across seam (world units). */
   maxHeight: number;
 }
 
@@ -34,7 +34,7 @@ interface SeamPair {
   edgeB: Edge;
 }
 
-/** 3×3 ızgaranın iç dikişleri: 6 doğu-batı + 6 kuzey-güney = 12. */
+/** Internal seams of 3x3 grid: 6 east-west + 6 north-south = 12. */
 export function internalSeamPairs(cols = CHUNKS_X, rows = CHUNKS_Z): SeamPair[] {
   const pairs: SeamPair[] = [];
   for (let cz = 0; cz < rows; cz++) {
@@ -56,8 +56,8 @@ export function internalSeamPairs(cols = CHUNKS_X, rows = CHUNKS_Z): SeamPair[] 
 }
 
 /**
- * 3×3 chunk'lık arazi. Index tamponu DOKUZ geometride tek bir `BufferAttribute`
- * nesnesi olarak paylaşılır; pozisyon/normal/uv chunk başına ayrıdır.
+ * 3x3 chunk terrain. Index buffer is shared across all nine geometries
+ * as a single `BufferAttribute` instance; position/normal/uv are per-chunk.
  */
 export class Terrain {
   readonly params: TerrainParams;
@@ -101,7 +101,7 @@ export class Terrain {
         this.meshes.push(mesh);
         this.group.add(mesh);
 
-        // FIELD normalleri geometrinin içinde zaten var; kopyasını saklıyoruz.
+        // FIELD normals already exist in geometry; keep a copy.
         const field = geometry.attributes.normal.array as Float32Array;
         this.normalSets.field.push(new Float32Array(field));
         this.normalSets.mesh.push(buildNaiveChunkNormals(params, cx, cz, this.height));
@@ -118,7 +118,7 @@ export class Terrain {
     return this.geometryMode;
   }
 
-  /** Şu anda chunk geometrilerinde duran normal dizileri. */
+  /** Normal arrays currently stored for chunk geometries. */
   normalsFor(source: NormalSource = this.normalSource): readonly Float32Array[] {
     return this.normalSets[source];
   }
@@ -127,7 +127,7 @@ export class Terrain {
     return this.chunkGeometries[chunkIndex].attributes.position.array as Float32Array;
   }
 
-  /** Normal kaynağını değiştirir. Pozisyonlara DOKUNMAZ — fark yalnızca aydınlatmada. */
+  /** Change normal source. DOES NOT touch positions — difference is purely lighting. */
   setNormalSource(source: NormalSource): void {
     if (source === this.normalSource) return;
     this.normalSource = source;
@@ -161,10 +161,10 @@ export class Terrain {
   }
 
   /**
-   * Dokuz chunk'ı TEK bir `BufferGeometry`'ye birleştirir. Pozisyonlara chunk ofseti
-   * EKLENİR (artık `mesh.position` yok), index'ler `chunkIndex * vertexCount` ile
-   * kaydırılır. 3×3'te 38.025 vertex hâlâ Uint16 sınırının altında ama index tamponu
-   * bilerek `Uint32Array`: ızgarayı 5×5 yapan biri sessiz bozulma yaşamasın.
+   * Merges nine chunks into a single `BufferGeometry`. Chunk offset is
+   * ADDED to positions (no `mesh.position`), indices are shifted by
+   * `chunkIndex * vertexCount`. In 3x3, 38,025 vertices is under Uint16 limit
+   * but index buffer intentionally uses `Uint32Array` to allow larger grids.
    */
   mergeChunks(): THREE.BufferGeometry {
     const p = this.params;
@@ -207,7 +207,7 @@ export class Terrain {
     merged.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
     merged.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
     merged.setIndex(new THREE.BufferAttribute(indices, 1));
-    merged.computeBoundingSphere(); // unutulursa culling ölçümü anlamsızlaşır
+    merged.computeBoundingSphere(); // essential for accurate culling metrics
     return merged;
   }
 
@@ -221,7 +221,7 @@ export class Terrain {
     dst.needsUpdate = true;
   }
 
-  /** İç dikişlerde normal ve yükseklik sürekliliği — canlı tamponlardan okunur. */
+  /** Normal and height continuity across internal seams — read from live buffers. */
   seamReport(source: NormalSource = this.normalSource): SeamSummary {
     const span = vertexSpan(this.params);
     const normals = this.normalSets[source];
@@ -239,9 +239,8 @@ export class Terrain {
   }
 
   /**
-   * TOPLU yıkım. Paylaşılan index attribute'u dokuz geometride ortak olduğu için
-   * chunk'ları teker teker `dispose()` etmek `onGeometryDispose` üzerinden ortak
-   * GPU tamponunu siler ve kalanlar bir sonraki karede sessizce yeniden yükler.
+   * BULK disposal. Because shared index attribute is common across all nine
+   * geometries, disposing individual chunks could prematurely free shared GPU buffer.
    */
   disposeAll(): void {
     this.group.clear();

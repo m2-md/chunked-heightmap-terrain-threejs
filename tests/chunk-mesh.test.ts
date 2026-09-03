@@ -13,20 +13,20 @@ import { angleBetweenDegrees } from "../src/seam.js";
 const P = DEFAULT_TERRAIN;
 
 describe("chunk mesh", () => {
-  it("iç vertex 6, kenar vertex 3, köşegen ucundaki köşe 1 üçgene değer", () => {
+  it("interior vertex touches 6 triangles, edge 3, diagonal corner 1", () => {
     const span = vertexSpan(P);
     const counts = new Uint8Array(span * span);
     for (const v of buildIndices(P.segments)) counts[v]++;
 
     const mid = Math.floor(span / 2);
-    expect(counts[mid * span + mid]).toBe(6); // iç
-    expect(counts[mid * span + (span - 1)]).toBe(3); // doğu kenarı
-    expect(counts[0]).toBe(1); // köşegen ucu
-    expect(counts[span * span - 1]).toBe(1); // öbür uç
+    expect(counts[mid * span + mid]).toBe(6); // interior
+    expect(counts[mid * span + (span - 1)]).toBe(3); // east edge
+    expect(counts[0]).toBe(1); // diagonal corner
+    expect(counts[span * span - 1]).toBe(1); // opposite corner
     expect(counts[span - 1]).toBe(2);
   });
 
-  it("paylaşılan index attribute dokuz geometride TEK nesne", () => {
+  it("shared index attribute is single instance across nine geometries", () => {
     const height = makeHeightFn(P);
     const shared = new THREE.BufferAttribute(buildIndices(P.segments), 1);
     const chunks: THREE.BufferGeometry[] = [];
@@ -34,12 +34,12 @@ describe("chunk mesh", () => {
       for (let x = 0; x < 3; x++) chunks.push(buildFieldChunk(P, x, z, height, shared));
 
     expect(chunks).toHaveLength(9);
-    for (const g of chunks) expect(g.index).toBe(shared); // aynı NESNE
+    for (const g of chunks) expect(g.index).toBe(shared); // same INSTANCE
     expect(new Set(chunks.map((g) => g.attributes.position)).size).toBe(9);
     for (const g of chunks) g.dispose();
   });
 
-  it("buildFieldChunk attribute şekilleri ve birim normaller", () => {
+  it("buildFieldChunk attribute shapes and unit normals", () => {
     const height = makeHeightFn(P);
     const shared = new THREE.BufferAttribute(buildIndices(P.segments), 1);
     const g = buildFieldChunk(P, 0, 0, height, shared);
@@ -60,7 +60,7 @@ describe("chunk mesh", () => {
     g.dispose();
   });
 
-  it("buildFieldChunk yükseklikleri İKİ KEZ örneklemez — pozisyon Y'si halka tamponundan", () => {
+  it("buildFieldChunk does not sample heights TWICE — position Y comes from ring buffer", () => {
     const height = makeHeightFn(P);
     const shared = new THREE.BufferAttribute(buildIndices(P.segments), 1);
     const g = buildFieldChunk(P, 1, 2, height, shared);
@@ -76,16 +76,16 @@ describe("chunk mesh", () => {
       [64, 64],
     ]) {
       const k = (j * span + i) * 3;
-      expect(pos[k]).toBe(i * P.cellSize); // YEREL X
-      expect(pos[k + 2]).toBe(j * P.cellSize); // YEREL Z
+      expect(pos[k]).toBe(i * P.cellSize); // LOCAL X
+      expect(pos[k + 2]).toBe(j * P.cellSize); // LOCAL Z
       expect(pos[k + 1]).toBe(patch.data[(j + 1) * patch.span + (i + 1)]);
-      // Ve halka tamponu gerçekten DÜNYA koordinatından örneklenmiş.
+      // and ring buffer is sampled from real WORLD coordinates.
       expect(pos[k + 1]).toBe(Math.fround(height(worldXOf(P, 1, i), worldZOf(P, 2, j))));
     }
     g.dispose();
   });
 
-  it("PlaneGeometry + rotateX(-90°) satır sırası: j → +Z, i → +X", () => {
+  it("PlaneGeometry + rotateX(-90°) row order: j -> +Z, i -> +X", () => {
     const Q = { ...P, segments: 2, cellSize: 1 };
     const flat = () => 0;
     const g = buildNaiveChunk(Q, 0, 0, flat);
@@ -103,10 +103,10 @@ describe("chunk mesh", () => {
     g.dispose();
   });
 
-  it("merkezî fark adımı hücre boyutuna EŞİT olduğunda mesh'e en yakın normali verir", () => {
-    // Ölçüt: halka yöntemi = mesh'in KENDİ üçgenlerinden alan ağırlıklı normal,
-    // yani "ekranda gerçekten çizilen yüzeyin" normali. Alan tabanlı normalin ona
-    // ne kadar yaklaştığını adım boyuna göre ölçüyoruz.
+  it("central difference step EQUAL to cellSize yields closest normals to mesh", () => {
+    // Benchmark: ring method = weighted normal taken from mesh's OWN triangles,
+    // i.e., "surface actually rendered on screen" normal. We measure how close
+    // finite difference normal gets as a function of step size.
     const height = makeHeightFn(P);
     const span = vertexSpan(P);
     const ring = buildRingChunkNormals(P, 0, 0, height);
@@ -141,16 +141,16 @@ describe("chunk mesh", () => {
     const cell = P.cellSize;
     const errShipped = meanAngleToRing(shipped);
 
-    // Adımı KÜÇÜLTMEK (analitik türev sınırına gitmek) mesh'ten UZAKLAŞTIRIR.
+    // REDUCING step (approaching analytical derivative limit) DEVIATES from mesh.
     expect(errShipped).toBeLessThan(meanAngleToRing(withStep(cell / 2)));
     expect(errShipped).toBeLessThan(meanAngleToRing(withStep(cell / 8)));
-    // Adımı BÜYÜTMEK de uzaklaştırır — iki yönde de minimum burada.
+    // INCREASING step also deviates — minimum is reached here from both sides.
     expect(errShipped).toBeLessThan(meanAngleToRing(withStep(cell * 2)));
     expect(errShipped).toBeLessThan(meanAngleToRing(withStep(cell * 4)));
-    // Ve gönderilen hâl gerçekten adım = cellSize ile aynı sonucu veriyor.
+    // and shipped version matches step = cellSize.
     expect(errShipped).toBeCloseTo(meanAngleToRing(withStep(cell)), 4);
 
-    // Büyük adım araziyi DÜZ gösterir: normallerin Y bileşeni 1'e yaklaşır.
+    // Large step flattens terrain: normal Y component approaches 1.
     const meanY = (n: Float32Array) => {
       let s = 0;
       for (let k = 1; k < n.length; k += 3) s += n[k];
@@ -159,7 +159,7 @@ describe("chunk mesh", () => {
     expect(meanY(withStep(cell * 4))).toBeGreaterThan(meanY(shipped));
   });
 
-  it("buildNaiveChunk bizim ızgaramızla aynı vertex/index sayısını üretir", () => {
+  it("buildNaiveChunk produces same vertex/index counts as our grid", () => {
     const height = makeHeightFn(P);
     const g = buildNaiveChunk(P, 0, 0, height);
     expect(g.attributes.position.count).toBe(4225);

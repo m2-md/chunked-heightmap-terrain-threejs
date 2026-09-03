@@ -17,15 +17,15 @@ import { vertexSpan } from "../src/chunk-grid.js";
 const P = DEFAULT_TERRAIN;
 const STEEP = { ...P, amplitude: 24, frequency: 1 / 48 };
 
-describe("dikiş sürekliliği", () => {
-  it("acos gürültü tabanı: atan2 hâli birebir aynı vektörde TAM 0 döner", () => {
+describe("seam continuity", () => {
+  it("acos noise floor: atan2 returns exact 0 for identical vectors", () => {
     const v = new Float32Array([1 / Math.sqrt(3), 1 / Math.sqrt(3), 1 / Math.sqrt(3)]);
     const dot = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
     expect((Math.acos(Math.min(1, dot)) * 180) / Math.PI).toBeGreaterThan(0.01);
     expect(angleBetweenDegrees(v[0], v[1], v[2], v[0], v[1], v[2])).toBe(0);
   });
 
-  it("yükseklikler dikişte BİREBİR eşit — yaklaşık değil", () => {
+  it("heights are EXACTLY equal across the seam — not approximate", () => {
     const height = makeHeightFn(P);
     const a = sampleChunkHeights(P, 0, 0, height);
     const b = sampleChunkHeights(P, 1, 0, height);
@@ -33,14 +33,14 @@ describe("dikiş sürekliliği", () => {
     for (let j = 0; j <= P.segments; j++) {
       const av = a.data[(j + 1) * a.span + (P.segments + 1)];
       const bv = b.data[(j + 1) * b.span + 1];
-      expect(av).toBe(bv); // toBeCloseTo DEĞİL
+      expect(av).toBe(bv); // NOT toBeCloseTo
       if (av !== 0) nonZero++;
     }
-    // Sıfır dizisini karşılaştırmıyoruz: kenar gerçekten arazi taşıyor.
+    // not comparing a zero array: boundary actually carries terrain.
     expect(nonZero).toBe(P.segments + 1);
   });
 
-  it("alandan hesaplanan normaller dikişte TAM olarak eşleşir", () => {
+  it("field-derived normals match exactly across the seam", () => {
     const height = makeHeightFn(P);
     const na = normalsFromHeights(P, sampleChunkHeights(P, 0, 0, height));
     const nb = normalsFromHeights(P, sampleChunkHeights(P, 1, 0, height));
@@ -50,16 +50,16 @@ describe("dikiş sürekliliği", () => {
     expect(report.meanDegrees).toBe(0);
   });
 
-  it("computeVertexNormals AYNI dikişte KIRAR — iki yolun farkı testin kendisi", () => {
+  it("computeVertexNormals BREAKS across the same seam — difference between two approaches is the test", () => {
     const height = makeHeightFn(STEEP);
     const span = vertexSpan(STEEP);
 
-    // ALAN yolu: halka tamponundan merkezî fark.
+    // FIELD approach: central difference from ring buffer.
     const fa = normalsFromHeights(STEEP, sampleChunkHeights(STEEP, 0, 0, height));
     const fb = normalsFromHeights(STEEP, sampleChunkHeights(STEEP, 1, 0, height));
     const field = compareNormalSeam(fa, fb, span, "east", "west");
 
-    // NAİF yol: chunk başına computeVertexNormals().
+    // NAIVE approach: per-chunk computeVertexNormals().
     const ma = buildNaiveChunkNormals(STEEP, 0, 0, height);
     const mb = buildNaiveChunkNormals(STEEP, 1, 0, height);
     const mesh = compareNormalSeam(ma, mb, span, "east", "west");
@@ -68,40 +68,40 @@ describe("dikiş sürekliliği", () => {
     expect(mesh.maxDegrees).toBeGreaterThan(1);
     expect(mesh.meanDegrees).toBeGreaterThan(0.1);
 
-    // Kırılma dikişe ÖZGÜ: naif yolun İÇ vertex'i alan yoluyla neredeyse aynı.
+    // Seam-specific discontinuity: naive approach interior vertices match field approach closely.
     const mid = Math.floor(span / 2);
     const k = (mid * span + mid) * 3;
     const inner = angleBetweenDegrees(ma[k], ma[k + 1], ma[k + 2], fa[k], fa[k + 1], fa[k + 2]);
     expect(inner).toBeLessThan(mesh.maxDegrees);
   });
 
-  it("kuzey-güney dikişi de aynı şekilde kapanır", () => {
+  it("north-south seam seals in the same manner", () => {
     const height = makeHeightFn(P);
     const na = normalsFromHeights(P, sampleChunkHeights(P, 0, 0, height));
     const nb = normalsFromHeights(P, sampleChunkHeights(P, 0, 1, height));
     expect(compareNormalSeam(na, nb, vertexSpan(P), "south", "north").maxDegrees).toBe(0);
   });
 
-  it("edgeIndices köşeleri iki kenarda da içerir", () => {
+  it("edgeIndices includes corners on both adjacent edges", () => {
     const span = vertexSpan(P);
     expect(edgeIndices(span, "east")[0]).toBe(span - 1);
     expect(edgeIndices(span, "north")[span - 1]).toBe(span - 1);
     expect(edgeIndices(span, "west")).toHaveLength(span);
-    // Batı ilk sütun, doğu son sütun; kuzey ilk satır, güney son satır.
+    // West is first column, east is last column; north is first row, south is last row.
     expect(edgeIndices(span, "west")[0]).toBe(0);
     expect(edgeIndices(span, "north")[0]).toBe(0);
     expect(edgeIndices(span, "south")[0]).toBe((span - 1) * span);
     expect(edgeIndices(span, "east")[span - 1]).toBe(span * span - 1);
   });
 
-  it("angleBetweenDegrees bilinen açıları doğru veriyor", () => {
+  it("angleBetweenDegrees gives correct known angles", () => {
     expect(angleBetweenDegrees(1, 0, 0, 0, 1, 0)).toBeCloseTo(90, 12);
     expect(angleBetweenDegrees(1, 0, 0, -1, 0, 0)).toBeCloseTo(180, 12);
     const s = Math.SQRT1_2;
     expect(angleBetweenDegrees(1, 0, 0, s, s, 0)).toBeCloseTo(45, 12);
   });
 
-  it("dikişte normaller BİLEŞEN BAZINDA eşit (açı 0 çıksın diye değil, gerçekten)", () => {
+  it("normals across seam match COMPONENT-BY-COMPONENT (not just 0 angle, exact equality)", () => {
     const height = makeHeightFn(P);
     const span = vertexSpan(P);
     const na = normalsFromHeights(P, sampleChunkHeights(P, 0, 0, height));
@@ -115,19 +115,19 @@ describe("dikiş sürekliliği", () => {
       expect(na[p]).toBe(nb[q]);
       expect(na[p + 1]).toBe(nb[q + 1]);
       expect(na[p + 2]).toBe(nb[q + 2]);
-      if (na[p + 1] < 0.999) tilted++; // düz zemin değil, gerçek eğim var
+      if (na[p + 1] < 0.999) tilted++; // not flat ground, real slope exists
     }
     expect(tilted).toBeGreaterThan(span / 2);
   });
 
-  it("taşma halkası da dikişi kapatır (analitik türev gerektirmeden)", () => {
+  it("padding ring also closes seam (without analytical derivatives)", () => {
     const height = makeHeightFn(STEEP);
     const span = vertexSpan(STEEP);
     const ra = buildRingChunkNormals(STEEP, 0, 0, height);
     const rb = buildRingChunkNormals(STEEP, 1, 0, height);
     expect(compareNormalSeam(ra, rb, span, "east", "west").maxDegrees).toBe(0);
 
-    // Ama halka yolu ALAN yoluyla aynı sayıyı vermez: biri mesh'e, öbürü alana bakıyor.
+    // But ring approach does not give identical values to field approach: one looks at mesh, other at field.
     const fa = normalsFromHeights(STEEP, sampleChunkHeights(STEEP, 0, 0, height));
     let maxDiff = 0;
     for (let k = 0; k < ra.length; k += 3) {
@@ -139,7 +139,7 @@ describe("dikiş sürekliliği", () => {
     expect(maxDiff).toBeGreaterThan(0);
   });
 
-  it("dikiş raporu YANLIŞ kenar çiftinde 0 vermez — eşleştirme gerçekten iş yapıyor", () => {
+  it("seam report does not yield 0 on incorrect edge pair — matching actually does work", () => {
     const height = makeHeightFn(STEEP);
     const span = vertexSpan(STEEP);
     const na = normalsFromHeights(STEEP, sampleChunkHeights(STEEP, 0, 0, height));
@@ -148,7 +148,7 @@ describe("dikiş sürekliliği", () => {
     expect(compareNormalSeam(na, nb, span, "east", "east").maxDegrees).toBeGreaterThan(1);
   });
 
-  it("compareHeightSeam: alan tabanlı pozisyonlarda 0, kaydırılmışta değil", () => {
+  it("compareHeightSeam: 0 on patch-based positions, non-zero when shifted", () => {
     const height = makeHeightFn(P);
     const span = vertexSpan(P);
     const toPositions = (patch: { data: Float32Array; span: number }) => {
@@ -164,7 +164,7 @@ describe("dikiş sürekliliği", () => {
     const posB = toPositions(sampleChunkHeights(P, 1, 0, height));
     expect(compareHeightSeam(posA, posB, span, "east", "west")).toBe(0);
 
-    // Off-by-one'lı bir dünya: yüksekliği bir hücre kaydır → dikiş açılır.
+    // Off-by-one world: shift height by one cell -> seam opens.
     const posShift = toPositions(sampleChunkHeights(P, 0, 0, (x, z) => height(x + P.cellSize, z)));
     expect(compareHeightSeam(posA, posShift, span, "east", "east")).toBeGreaterThan(0);
   });

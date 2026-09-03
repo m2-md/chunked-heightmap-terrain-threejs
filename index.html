@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chunk'lı Heightmap Arazi — Dikişte Normal Sürekliliği</title>
+    <title>Chunked Heightmap Terrain with Normal Continuity in Three.js</title>
     <style>
       :root {
         --cyan: #22d3ee;
@@ -149,15 +149,15 @@
     <div id="vignette"></div>
 
     <section class="panel" id="hud">
-      <h1>Chunk'lı Heightmap Arazi · three r185</h1>
-      <div class="sub">3×3 chunk · 64 segment · tohum 1337</div>
+      <h1>Chunked Heightmap Terrain · three r185</h1>
+      <div class="sub">3×3 chunks · 64 segments · seed 1337</div>
 
       <div class="row">
         <span class="k">MODE</span><span class="value" id="v-mode">FIELD · CHUNKED</span>
       </div>
 
       <div class="group">
-        <span class="tag measured">ÖLÇÜM · renderer.info + hesap</span>
+        <span class="tag measured">MEASUREMENT · renderer.info + calc</span>
         <div class="row"><span class="k">DRAW CALLS</span><span class="value" id="v-calls">—</span></div>
         <div class="row"><span class="k">TRIANGLES</span><span class="value" id="v-tris">—</span></div>
         <div class="row"><span class="k">GEOMETRIES</span><span class="value" id="v-geoms">—</span></div>
@@ -166,21 +166,21 @@
       </div>
 
       <div class="group">
-        <span class="tag structural">YAPISAL · ızgara aritmetiği</span>
+        <span class="tag structural">STRUCTURAL · grid arithmetic</span>
         <div class="row"><span class="k">CHUNKS</span><span class="value" id="v-chunks">—</span></div>
         <div class="row"><span class="k">VERTICES/CHUNK</span><span class="value" id="v-vpc">—</span></div>
         <div class="row"><span class="k">TRIANGLES/CHUNK</span><span class="value" id="v-tpc">—</span></div>
         <div class="row"><span class="k">INDEX BYTES</span><span class="value" id="v-idx">—</span></div>
       </div>
 
-      <div class="stamp">son ölçüm: <span id="v-stamp">—</span></div>
+      <div class="stamp">last measurement: <span id="v-stamp">—</span></div>
     </section>
 
     <section class="panel" id="keys">
       <button data-key="n">N</button>
       <button data-key="g">G</button>
       <button data-key="m">M</button>
-      <span class="hint">N: normal kaynağı · G: geometri modu · M: ölçüm al</span>
+      <span class="hint">N: normal source · G: geometry mode · M: measure seam</span>
     </section>
 
     <script type="module" src="/src/main.ts"></script>

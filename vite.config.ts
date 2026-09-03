@@ -1,10 +1,10 @@
 import { defineConfig } from "vite";
 
-// Demo modern hedefle derlenir (three r185 ESM). Testler vitest'in kendi
-// node ortamında koşar — tarayıcı, canvas ya da WebGL bağlamı gerekmez.
+// Demo compiles for modern target (three r185 ESM). Tests run in vitest's
+// node environment — no browser, canvas, or WebGL context required.
 export default defineConfig({
   server: {
-    // Depodaki her demonun kendi portu var (bkz. .claude/launch.json).
+    // Each demo in repo has its own port (see .claude/launch.json).
     port: 5216,
   },
   build: {

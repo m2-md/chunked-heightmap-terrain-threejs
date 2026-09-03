@@ -3,10 +3,10 @@ import { chunkSize } from "./chunk-grid.js";
 
 export interface TerrainParams {
   seed: number;
-  segments: number; // chunk kenarındaki quad sayısı
-  cellSize: number; // bir quad'ın dünya birimi cinsinden kenarı
-  amplitude: number; // tepe yüksekliği (dünya birimi)
-  frequency: number; // dünya birimi → noise uzayı ölçeği
+  segments: number; // quad count along chunk edge
+  cellSize: number; // side length of a quad in world units
+  amplitude: number; // peak height (world units)
+  frequency: number; // world units -> noise space scale
   octaves: number;
   lacunarity: number;
   gain: number;
@@ -25,20 +25,20 @@ export const DEFAULT_TERRAIN: TerrainParams = {
 
 export type HeightFn = (worldX: number, worldZ: number) => number;
 
-/** Dünya koordinatından yükseklik. Saf fonksiyon: aynı girdi → aynı çıktı, her yerde. */
+/** Height from world coordinate. Pure function: same input -> same output everywhere. */
 export function makeHeightFn(p: TerrainParams): HeightFn {
   const fbm = makeFbm(p.seed, p);
   return (worldX, worldZ) => fbm(worldX * p.frequency, worldZ * p.frequency) * p.amplitude;
 }
 
 export interface HeightPatch {
-  /** (segments + 3)² yükseklik. Yerel indeks aralığı -1 .. segments+1. */
+  /** (segments + 3)² heights. Local index range -1 .. segments+1. */
   data: Float32Array;
-  /** Satır uzunluğu = segments + 3. */
+  /** Row length = segments + 3. */
   span: number;
 }
 
-/** Chunk'ın yüksekliklerini BİR hücrelik taşma halkasıyla birlikte örnekler. */
+/** Samples chunk heights along with a one-cell padding ring. */
 export function sampleChunkHeights(
   p: TerrainParams,
   chunkX: number,
@@ -60,7 +60,7 @@ export function sampleChunkHeights(
   return { data, span };
 }
 
-/** Yükseklik tamponundan merkezî farkla normal. Mesh'e hiç bakmaz. */
+/** Normal via central differences from height buffer. Does not inspect mesh. */
 export function normalsFromHeights(p: TerrainParams, patch: HeightPatch): Float32Array {
   const { data, span } = patch;
   const n = p.segments + 1;
@@ -68,7 +68,7 @@ export function normalsFromHeights(p: TerrainParams, patch: HeightPatch): Float3
   const twoCell = 2 * p.cellSize;
 
   for (let j = 0; j < n; j++) {
-    const fj = j + 1; // halka ofseti
+    const fj = j + 1; // ring offset
     for (let i = 0; i < n; i++) {
       const fi = i + 1;
       const dx = (data[fj * span + fi + 1] - data[fj * span + fi - 1]) / twoCell;

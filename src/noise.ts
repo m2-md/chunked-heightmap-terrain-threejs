@@ -1,6 +1,6 @@
 import { mulberry32 } from "./rng.js";
 
-/** Tohumdan Fisher-Yates ile karılmış 0..255 permütasyonu, 512'ye katlanmış hâli. */
+/** 0..255 permutation shuffled with Fisher-Yates from seed, doubled to 512. */
 export function makePermutation(seed: number): Uint8Array {
   const rng = mulberry32(seed);
   const p = new Uint8Array(256);
@@ -18,7 +18,7 @@ export function makePermutation(seed: number): Uint8Array {
 
 export type Noise2D = (x: number, z: number) => number;
 
-/** Tohumlu 2B value noise. Dönüş aralığı [-1, 1]. */
+/** Seeded 2D value noise. Return range [-1, 1]. */
 export function makeValueNoise(seed: number): Noise2D {
   const perm = makePermutation(seed);
   const lattice = new Float32Array(256);
@@ -26,7 +26,7 @@ export function makeValueNoise(seed: number): Noise2D {
   for (let i = 0; i < 256; i++) lattice[i] = rng() * 2 - 1;
 
   const at = (xi: number, zi: number) => lattice[perm[(perm[xi & 255] + (zi & 255)) & 255]];
-  // Perlin'in quintic fade'i: birinci VE ikinci türevi uçlarda sıfır.
+  // Perlin's quintic fade: first and second derivatives zero at endpoints.
   const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
   return function value(x: number, z: number): number {
@@ -48,7 +48,7 @@ export interface FbmOptions {
   gain: number;
 }
 
-/** Oktav genliklerinin toplamı — normalizasyon böleni. gain=0.5, 5 oktav → 1.9375. */
+/** Sum of octave amplitudes — normalization divisor. gain=0.5, 5 octaves -> 1.9375. */
 export function amplitudeSum(options: FbmOptions): number {
   let sum = 0;
   let amp = 1;

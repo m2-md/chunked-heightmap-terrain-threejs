@@ -13,7 +13,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.shadowMap.enabled = false; // gölge yok — demo bilerek hafif
+renderer.shadowMap.enabled = false; // no shadows — demo deliberately lightweight
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x080a11);
@@ -28,7 +28,7 @@ controls.target.set(WORLD / 2, 4, WORLD / 2);
 controls.maxPolarAngle = Math.PI * 0.495;
 controls.update();
 
-// Işık yandan ve alçaktan: dikişi görmenin en kolay yolu bu.
+// low, grazing light: easiest way to reveal seams.
 const sun = new THREE.DirectionalLight(0xfff2dd, 2.6);
 sun.position.set(-1, 0.32, 0.55).normalize().multiplyScalar(200);
 scene.add(sun);
@@ -58,7 +58,7 @@ const out = {
 let normalSource: NormalSource = "field";
 let geometryMode: GeometryMode = "chunked";
 
-const nf = new Intl.NumberFormat("tr-TR");
+const nf = new Intl.NumberFormat("en-US");
 
 function paintMode(): void {
   const n = normalSource === "field" ? "FIELD" : "MESH";
@@ -75,7 +75,7 @@ function paintStructural(): void {
   out.idx.textContent = `${nf.format(idxBytes)} B`;
 }
 
-/** ÖLÇÜM: renderer.info render'dan SONRA okunur, yoksa bir kare geriden gelir. */
+/** MEASUREMENT: read renderer.info after render, otherwise it lags by one frame. */
 function measure(): void {
   renderer.render(scene, camera);
   const info = renderer.info;
@@ -84,10 +84,10 @@ function measure(): void {
   out.geoms.textContent = String(info.memory.geometries);
 
   const report = terrain.seamReport(normalSource);
-  out.seam.textContent = `${report.maxDegrees.toFixed(4)}° (${report.seams} dikiş)`;
+  out.seam.textContent = `${report.maxDegrees.toFixed(4)}° (${report.seams} seams)`;
   out.seam.className = report.maxDegrees === 0 ? "value ok" : "value warn";
-  out.seamH.textContent = report.maxHeight === 0 ? "0 (tam)" : report.maxHeight.toExponential(3);
-  out.stamp.textContent = new Date().toLocaleTimeString("tr-TR");
+  out.seamH.textContent = report.maxHeight === 0 ? "0 (exact)" : report.maxHeight.toExponential(3);
+  out.stamp.textContent = new Date().toLocaleTimeString("en-US");
 }
 
 window.addEventListener("keydown", (event) => {
@@ -120,7 +120,7 @@ window.addEventListener("resize", () => {
 paintStructural();
 paintMode();
 
-// setAnimationLoop yalnızca OrbitControls damping'i için koşuyor; ağır iş yapmaz.
+// setAnimationLoop runs only for OrbitControls damping; no heavy lifting.
 renderer.setAnimationLoop(() => {
   controls.update();
   renderer.render(scene, camera);

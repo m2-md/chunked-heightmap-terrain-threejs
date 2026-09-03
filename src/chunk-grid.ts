@@ -1,11 +1,11 @@
 import type { TerrainParams } from "./height-field.js";
 
-/** Bir chunk'ın dünya birimi cinsinden kenar uzunluğu. */
+/** Side length of a single chunk in world units. */
 export function chunkSize(p: TerrainParams): number {
   return p.segments * p.cellSize;
 }
 
-/** Chunk kenarındaki vertex sayısı: N quad → N+1 vertex. */
+/** Vertex count along chunk edge: N quads -> N+1 vertices. */
 export function vertexSpan(p: TerrainParams): number {
   return p.segments + 1;
 }
@@ -20,9 +20,9 @@ export function triangleCount(p: TerrainParams): number {
 }
 
 /**
- * Chunk indeksi + yerel ızgara indeksi → dünya koordinatı.
- * Chunk kökeni `segments * cellSize` adımlarla ilerler — `(segments + 1) * cellSize` DEĞİL.
- * Yanlışını yazarsanız chunk'lar arasında tam bir hücre boşluk açılır.
+ * Chunk index + local grid index -> world coordinate.
+ * Chunk origin advances by `segments * cellSize` — NOT `(segments + 1) * cellSize`.
+ * Getting this wrong opens exactly a 1-cell gap between chunks.
  */
 export function worldXOf(p: TerrainParams, chunkX: number, i: number): number {
   return chunkX * chunkSize(p) + i * p.cellSize;
@@ -33,8 +33,8 @@ export function worldZOf(p: TerrainParams, chunkZ: number, j: number): number {
 }
 
 /**
- * Izgara topolojisi. Chunk'lar arasında PAYLAŞILIR — pozisyon/normal değişir,
- * bu değişmez. Vertex sayısı 65.536'yı aşmıyorsa Uint16 yeter.
+ * Grid topology. SHARED between chunks — position/normal change,
+ * this stays constant. If vertex count does not exceed 65,536, Uint16 is sufficient.
  */
 export function buildIndices(segments: number): Uint16Array | Uint32Array {
   const span = segments + 1;

@@ -1,7 +1,7 @@
 {
   "name": "chunked-heightmap-terrain-threejs",
   "version": "1.0.0",
-  "description": "Chunk'lı heightmap arazi: tohumlu value noise + fBm, chunk ızgara aritmetiği, dikişte normal sürekliliği — normali mesh'ten değil yükseklik alanından hesaplamak. Three.js r185, render'dan ayrık çekirdek, deterministik vitest.",
+  "description": "Infinite chunked procedural heightmap terrain in Three.js r185: seeded value noise + fBm, chunk coordinate grid arithmetic, and analytic heightfield normal continuity.",
   "type": "module",
   "license": "MIT",
   "scripts": {

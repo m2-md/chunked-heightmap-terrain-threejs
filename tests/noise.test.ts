@@ -5,26 +5,26 @@ import { DEFAULT_TERRAIN, makeHeightFn } from "../src/height-field.js";
 
 const FBM = { octaves: 5, lacunarity: 2, gain: 0.5 };
 
-describe("tohumlu gürültü", () => {
-  it("aynı tohum → bit bit aynı permütasyon", () => {
+describe("seeded noise", () => {
+  it("same seed -> bit-for-bit identical permutation", () => {
     expect(Array.from(makePermutation(1337))).toEqual(Array.from(makePermutation(1337)));
     expect(Array.from(makePermutation(1337))).not.toEqual(Array.from(makePermutation(1338)));
   });
 
-  it("permütasyon 0..255'in gerçek bir permütasyonu ve 512'ye katlanmış", () => {
+  it("permutation is a genuine permutation of 0..255 and doubled to 512", () => {
     const perm = makePermutation(1337);
     expect(perm.length).toBe(512);
     expect([...new Set(perm.slice(0, 256))].length).toBe(256);
     for (let i = 0; i < 256; i++) expect(perm[i + 256]).toBe(perm[i]);
   });
 
-  it("oktav genlik toplamı: gain 0,5 ve 5 oktav → 1,9375", () => {
+  it("octave amplitude sum: gain 0.5 and 5 octaves -> 1.9375", () => {
     expect(amplitudeSum(FBM)).toBe(1.9375);
     expect(amplitudeSum({ ...FBM, octaves: 1 })).toBe(1);
     expect(amplitudeSum({ ...FBM, gain: 1 })).toBe(5);
   });
 
-  it("fBm normalize: 20.000 örnekte [-1, 1] dışına çıkmaz", () => {
+  it("fBm normalized: does not exceed [-1, 1] across 20,000 samples", () => {
     const fbm = makeFbm(1337, FBM);
     for (let i = 0; i < 20_000; i++) {
       const v = fbm((i % 211) * 0.37, Math.floor(i / 211) * 0.53);
@@ -33,12 +33,12 @@ describe("tohumlu gürültü", () => {
     }
   });
 
-  it("value noise kafes köşelerinde tekrar eder (256 periyot)", () => {
+  it("value noise repeats at grid corners (256 period)", () => {
     const noise = makeValueNoise(1337);
     expect(noise(3, 7)).toBe(noise(3 + 256, 7 + 256));
   });
 
-  it("mulberry32 aynı tohumda aynı diziyi, farklı tohumda farklısını verir", () => {
+  it("mulberry32 gives same sequence for same seed, different for different seed", () => {
     const a = mulberry32(1337);
     const b = mulberry32(1337);
     const c = mulberry32(1338);
@@ -53,7 +53,7 @@ describe("tohumlu gürültü", () => {
     }
   });
 
-  it("aynı tohum → BİT BİT aynı yükseklik dizisi; farklı tohum → farklı", () => {
+  it("same seed -> BIT-FOR-BIT identical height array; different seed -> different", () => {
     const sample = (seed: number) => {
       const h = makeHeightFn({ ...DEFAULT_TERRAIN, seed });
       const out = new Float64Array(4096);
@@ -66,25 +66,25 @@ describe("tohumlu gürültü", () => {
     const b = sample(1337);
     const c = sample(1338);
 
-    // Bit bit karşılaştırma: Float64Array'in ham baytları.
+    // Bit-for-bit comparison: raw bytes of Float64Array.
     expect(new Uint8Array(a.buffer)).toEqual(new Uint8Array(b.buffer));
     expect(new Uint8Array(a.buffer)).not.toEqual(new Uint8Array(c.buffer));
 
-    // Ve hiçbiri sabit değil — "her yerde 0 döndür" de bit bit eşit olurdu.
+    // and none of them are constant.
     expect(new Set(a).size).toBeGreaterThan(1000);
   });
 
-  it("fBm oktav sayısı arttıkça toplam genlik amplitudeSum'a yakınsar", () => {
-    // 1 + 0.5 + 0.25 + ... → 2. Her ek oktav farkı yarıya indirir.
+  it("as fBm octave count increases total amplitude converges to amplitudeSum", () => {
+    // 1 + 0.5 + 0.25 + ... -> 2. Each additional octave halves the remaining difference.
     expect(amplitudeSum({ ...FBM, octaves: 10 })).toBeCloseTo(2 - 2 ** -9, 12);
     expect(amplitudeSum({ ...FBM, octaves: 2 })).toBe(1.5);
     expect(amplitudeSum({ ...FBM, octaves: 3 })).toBe(1.75);
     expect(amplitudeSum({ ...FBM, octaves: 4 })).toBe(1.875);
-    // lacunarity genlik toplamına GİRMEZ — yalnızca gain ve octaves.
+    // lacunarity DOES NOT enter amplitude sum — only gain and octaves.
     expect(amplitudeSum({ octaves: 5, lacunarity: 3.7, gain: 0.5 })).toBe(1.9375);
   });
 
-  it("normalizasyon böleni unutulursa fBm aralığı taşar — bölenin işi bu", () => {
+  it("fBm range overflows if normalization divisor omitted — that is divisor's job", () => {
     const noise = makeValueNoise(1337);
     const norm = amplitudeSum(FBM);
     let maxRaw = 0;
@@ -101,9 +101,9 @@ describe("tohumlu gürültü", () => {
       }
       maxRaw = Math.max(maxRaw, Math.abs(sum));
     }
-    // Bölünmemiş toplam 1'i AŞIYOR (yani bölme gerçekten iş yapıyor)…
+    // Un-divided sum EXCEEDS 1 (confirming division is necessary)...
     expect(maxRaw).toBeGreaterThan(1);
-    // …ve bölündükten sonra aralığa giriyor.
+    // ...and enters the range after division.
     expect(maxRaw / norm).toBeLessThanOrEqual(1);
   });
 });

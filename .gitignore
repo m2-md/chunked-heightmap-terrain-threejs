@@ -7,7 +7,7 @@ dist/
 .DS_Store
 *.log
 
-# Paket yöneticisi npm (ADR-001) — başka lock dosyası repoya girmez.
+# Package manager is npm (ADR-001) — no other lockfile enters the repo.
 yarn.lock
 pnpm-lock.yaml
 bun.lockb

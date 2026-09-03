@@ -7,7 +7,7 @@ import {
   type TerrainParams,
 } from "./height-field.js";
 
-/** Herkesin ilk yazdığı hâli: PlaneGeometry + computeVertexNormals. Dikişte kırılır. */
+/** The naive first attempt: PlaneGeometry + computeVertexNormals. Breaks at seams. */
 export function buildNaiveChunk(
   p: TerrainParams,
   chunkX: number,
@@ -16,7 +16,7 @@ export function buildNaiveChunk(
 ): THREE.BufferGeometry {
   const size = p.segments * p.cellSize;
   const geometry = new THREE.PlaneGeometry(size, size, p.segments, p.segments);
-  geometry.rotateX(-Math.PI / 2); // XY düzleminden XZ zeminine
+  geometry.rotateX(-Math.PI / 2); // from XY plane to XZ ground
 
   const span = vertexSpan(p);
   const position = geometry.attributes.position as THREE.BufferAttribute;
@@ -29,14 +29,14 @@ export function buildNaiveChunk(
   }
   position.needsUpdate = true;
 
-  geometry.computeVertexNormals(); // ← dikiş tam olarak burada kırılıyor
+  geometry.computeVertexNormals(); // ← seam breaks right here
   geometry.computeBoundingSphere();
   return geometry;
 }
 
 /**
- * Naif yolun yalnızca normal dizisi. Testler ve ölçüm script'i bunu kullanıyor ki
- * `BufferGeometry` alanlarını didiklemek zorunda kalmasınlar.
+ * Normal array only for naive approach. Tests and measurement script use this
+ * so they don't have to inspect BufferGeometry fields directly.
  */
 export function buildNaiveChunkNormals(
   p: TerrainParams,
@@ -52,10 +52,10 @@ export function buildNaiveChunkNormals(
 }
 
 /**
- * Taşma halkası (skirt) yolu: (segments+3)² ızgara kurulur, `computeVertexNormals()`
- * ORADA çağrılır, sonra halka atılıp iç (segments+1)² normal saklanır.
- * Analitik türev gerektirmez — yükseklik kaynağı bir PNG ya da elle yontulmuş bir
- * mesh olsa da çalışır. Tek şartı sınırın bir hücre ötesini örnekleyebilmek.
+ * Padding ring (skirt) approach: build (segments+3)² grid, invoke `computeVertexNormals()`
+ * on that, then discard padding and retain inner (segments+1)² normals.
+ * Does not require analytical derivatives — works whether height source is PNG or
+ * a sculpted mesh. The only requirement is sampling one cell past boundaries.
  */
 export function buildRingChunkNormals(
   p: TerrainParams,
@@ -70,7 +70,7 @@ export function buildRingChunkNormals(
   for (let j = 0; j < ring; j++) {
     for (let i = 0; i < ring; i++) {
       const k = (j * ring + i) * 3;
-      positions[k] = (i - 1) * p.cellSize; // YEREL — normaller ötelemeden bağımsız
+      positions[k] = (i - 1) * p.cellSize; // LOCAL — normals invariant to translation
       positions[k + 1] = patch.data[j * ring + i];
       positions[k + 2] = (j - 1) * p.cellSize;
     }
@@ -113,7 +113,7 @@ export function buildFieldChunk(
   for (let j = 0; j < span; j++) {
     for (let i = 0; i < span; i++) {
       const k = j * span + i;
-      positions[k * 3] = i * p.cellSize; // YEREL koordinat
+      positions[k * 3] = i * p.cellSize; // LOCAL coordinate
       positions[k * 3 + 1] = patch.data[(j + 1) * patch.span + (i + 1)];
       positions[k * 3 + 2] = j * p.cellSize;
       uvs[k * 2] = i / p.segments;
@@ -125,7 +125,7 @@ export function buildFieldChunk(
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-  geometry.setIndex(sharedIndex); // topoloji her chunk'ta AYNI
+  geometry.setIndex(sharedIndex); // topology is IDENTICAL for each chunk
   geometry.computeBoundingSphere();
   return geometry;
 }
