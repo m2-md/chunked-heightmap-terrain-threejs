@@ -4,6 +4,9 @@
 **▶ [Live demo](https://m2-md.github.io/chunked-heightmap-terrain-threejs/)** · [Source](https://github.com/m2-md/chunked-heightmap-terrain-threejs)
 <!-- LINKS:END -->
 
+> Infinite chunked procedural heightmap terrain in Three.js: seeded value noise + fBm,
+> chunk coordinate grid arithmetic, and analytic heightfield normal continuity.
+
 Working code for the article "Terrain Splits, Light Does Not: Computing the Normal from
 the Field Instead of the Mesh in Chunked Heightmap Terrain". It contains three things:
 
@@ -174,6 +177,13 @@ reset at the start of every `render()`, reading it before would put you one fram
 npm run build      # tsc && vite build
 npm run preview
 ```
+
+## Tech stack
+
+- TypeScript
+- Three.js r185 (WebGL)
+- Vite / vite-node
+- Vitest
 
 ## File layout
 
