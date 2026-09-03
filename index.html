@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chunk'lı Heightmap Arazi — Dikişte Normal Sürekliliği</title>
+    <style>
+      :root {
+        --cyan: #22d3ee;
+        --violet: #a78bfa;
+        --magenta: #f472b6;
+        --success: #34d399;
+        --ink: #e6ebf5;
+        --muted: #8b96ad;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 0%, #10141f, #080a11 60%, #05060b);
+        color: var(--ink);
+        font-family: var(--mono);
+      }
+      #scene {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #vignette {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.62) 100%);
+      }
+      .panel {
+        position: fixed;
+        background: rgba(17, 21, 32, 0.55);
+        backdrop-filter: blur(14px) saturate(1.2);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 14px 16px;
+      }
+      #hud {
+        top: 18px;
+        left: 18px;
+        width: 328px;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      #hud h1 {
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        margin-bottom: 2px;
+      }
+      #hud .sub {
+        color: var(--muted);
+        font-size: 11px;
+        margin-bottom: 10px;
+      }
+      .group {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .group > .tag {
+        display: inline-block;
+        font-size: 9.5px;
+        letter-spacing: 0.12em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        margin-bottom: 6px;
+      }
+      .tag.measured {
+        color: var(--cyan);
+        border: 1px solid rgba(34, 211, 238, 0.35);
+        background: rgba(34, 211, 238, 0.08);
+      }
+      .tag.structural {
+        color: var(--violet);
+        border: 1px solid rgba(167, 139, 250, 0.35);
+        background: rgba(167, 139, 250, 0.08);
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 1.5px 0;
+      }
+      .row .k {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .value {
+        font-variant-numeric: tabular-nums;
+        font-size: 11.5px;
+      }
+      .value.ok {
+        color: var(--success);
+      }
+      .value.warn {
+        color: var(--magenta);
+      }
+      #keys {
+        bottom: 18px;
+        left: 18px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 11px;
+      }
+      #keys button {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9px;
+        padding: 6px 11px;
+        cursor: pointer;
+      }
+      #keys button:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+      #keys .hint {
+        color: var(--muted);
+        margin-left: 4px;
+      }
+      .stamp {
+        color: var(--muted);
+        font-size: 10px;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="vignette"></div>
+
+    <section class="panel" id="hud">
+      <h1>Chunk'lı Heightmap Arazi · three r185</h1>
+      <div class="sub">3×3 chunk · 64 segment · tohum 1337</div>
+
+      <div class="row">
+        <span class="k">MODE</span><span class="value" id="v-mode">FIELD · CHUNKED</span>
+      </div>
+
+      <div class="group">
+        <span class="tag measured">ÖLÇÜM · renderer.info + hesap</span>
+        <div class="row"><span class="k">DRAW CALLS</span><span class="value" id="v-calls">—</span></div>
+        <div class="row"><span class="k">TRIANGLES</span><span class="value" id="v-tris">—</span></div>
+        <div class="row"><span class="k">GEOMETRIES</span><span class="value" id="v-geoms">—</span></div>
+        <div class="row"><span class="k">SEAM MAX</span><span class="value" id="v-seam">—</span></div>
+        <div class="row"><span class="k">SEAM HEIGHT</span><span class="value" id="v-seamh">—</span></div>
+      </div>
+
+      <div class="group">
+        <span class="tag structural">YAPISAL · ızgara aritmetiği</span>
+        <div class="row"><span class="k">CHUNKS</span><span class="value" id="v-chunks">—</span></div>
+        <div class="row"><span class="k">VERTICES/CHUNK</span><span class="value" id="v-vpc">—</span></div>
+        <div class="row"><span class="k">TRIANGLES/CHUNK</span><span class="value" id="v-tpc">—</span></div>
+        <div class="row"><span class="k">INDEX BYTES</span><span class="value" id="v-idx">—</span></div>
+      </div>
+
+      <div class="stamp">son ölçüm: <span id="v-stamp">—</span></div>
+    </section>
+
+    <section class="panel" id="keys">
+      <button data-key="n">N</button>
+      <button data-key="g">G</button>
+      <button data-key="m">M</button>
+      <span class="hint">N: normal kaynağı · G: geometri modu · M: ölçüm al</span>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
